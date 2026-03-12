@@ -84,6 +84,30 @@ def main():
     benchmark_gemm_dense(torch.bfloat16, MATRIX_SIZE, device,
                         'BF16 (Tensor Core, dense)', gpu_info['bf16'], dense=True)
 
+    # FP8 (dense - Tensor Core 不启用稀疏)
+    if 'fp8' in gpu_info and gpu_info['fp8'] > 0:
+        try:
+            # 检查是否支持FP8
+            if hasattr(torch, 'float8_e4m3fn'):
+                benchmark_gemm_dense(torch.float8_e4m3fn, MATRIX_SIZE, device,
+                                    'FP8 (Tensor Core, dense)', gpu_info['fp8'], dense=True)
+            else:
+                print(f"  FP8 (Tensor Core, dense)     不支持此PyTorch版本")
+        except Exception as e:
+            print(f"  FP8 (Tensor Core, dense)     测试失败: {str(e)}")
+
+    # FP4 (dense - Tensor Core 不启用稀疏)
+    if 'fp4' in gpu_info and gpu_info['fp4'] > 0:
+        try:
+            # 检查是否支持FP4
+            if hasattr(torch, 'float4_e2m1fn'):
+                benchmark_gemm_dense(torch.float4_e2m1fn, MATRIX_SIZE, device,
+                                    'FP4 (Tensor Core, dense)', gpu_info['fp4'], dense=True)
+            else:
+                print(f"  FP4 (Tensor Core, dense)     不支持此PyTorch版本")
+        except Exception as e:
+            print(f"  FP4 (Tensor Core, dense)     测试失败: {str(e)}")
+
     print(f"{'='*65}\n")
 
 

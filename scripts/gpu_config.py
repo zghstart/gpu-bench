@@ -117,6 +117,7 @@ def get_gpu_peak_info(gpu_name):
             'fp16': 2700,           # Dense FP16
             'bf16': 2700,           # Dense BF16
             'fp8': 5400,            # Dense FP8
+            'fp4': 10800,           # Dense FP4
             'hbm_bw': 5200,         # HBM3E
             'has_sparsity': True,   # may support sparsity
         }
@@ -133,6 +134,7 @@ def get_gpu_peak_info(gpu_name):
             'fp16': 3800,           # Dense FP16
             'bf16': 3800,           # Dense BF16
             'fp8': 7600,            # Dense FP8
+            'fp4': 15200,           # Dense FP4
             'hbm_bw': 6000,         # HBM3E
             'has_sparsity': True,   # may support sparsity
         }
@@ -169,4 +171,6 @@ if __name__ == '__main__':
         print(f"    BF16 Tensor Core: {info['bf16']} TFLOPS {'(稠密)' if info['has_sparsity'] else ''}")
         if info.get('fp8'):
             print(f"    FP8 Tensor Core: {info['fp8']} TFLOPS {'(稠密)' if info['has_sparsity'] else ''}")
+        if info.get('fp4'):
+            print(f"    FP4 Tensor Core: {info['fp4']} TFLOPS {'(稠密)' if info['has_sparsity'] else ''}")
         print(f"    HBM 带宽: {info['hbm_bw']} GB/s")
