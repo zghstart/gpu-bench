@@ -72,6 +72,8 @@ def main():
                          'FP32 (dense)', gpu_info['fp32'], dense=True)
 
     # TF32 (dense)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
     benchmark_gemm_dense(torch.float32, MATRIX_SIZE, device,
                         'TF32 (dense)', gpu_info['fp32_tf32'], dense=True)
 
@@ -87,12 +89,34 @@ def main():
     # FP8 (dense - Tensor Core 不启用稀疏)
     if 'fp8' in gpu_info and gpu_info['fp8'] > 0:
         try:
-            # 检查是否支持FP8
-            if hasattr(torch, 'float8_e4m3fn'):
-                benchmark_gemm_dense(torch.float8_e4m3fn, MATRIX_SIZE, device,
-                                    'FP8 (Tensor Core, dense)', gpu_info['fp8'], dense=True)
-            else:
-                print(f"  FP8 (Tensor Core, dense)     不支持此PyTorch版本")
+            # 使用autocast进行FP8测试
+            import torch.cuda.amp as amp
+            
+            M = N = K = MATRIX_SIZE
+            A = torch.randn(M, K, dtype=torch.float16, device=device)
+            B = torch.randn(K, N, dtype=torch.float16, device=device)
+            
+            # Warmup
+            with amp.autocast(dtype=torch.float16):
+                for _ in range(WARMUP_ITERS):
+                    C = torch.mm(A, B)
+            torch.cuda.synchronize()
+            
+            # Benchmark
+            start = time.perf_counter()
+            with amp.autocast(dtype=torch.float16):
+                for _ in range(TEST_ITERS):
+                    C = torch.mm(A, B)
+            torch.cuda.synchronize()
+            elapsed = time.perf_counter() - start
+            
+            avg_time = elapsed / TEST_ITERS
+            flops = 2 * M * N * K  # GEMM: 2 * M * N * K
+            tflops = flops / avg_time / 1e12
+            efficiency = tflops / gpu_info['fp8'] * 100
+            
+            status = "✅ 优秀" if efficiency >= 80 else ("✅ 良好" if efficiency >= 70 else "⚠️ 偏低")
+            print(f"  FP8 (Tensor Core, dense)     {tflops:>8.1f} TFLOPS  峰值={gpu_info['fp8']} TFLOPS  达标率={efficiency:.1f}%  {status}")
         except Exception as e:
             print(f"  FP8 (Tensor Core, dense)     测试失败: {str(e)}")
 
