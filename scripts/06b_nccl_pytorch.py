@@ -57,6 +57,13 @@ def benchmark_allgather(tensor_size_bytes, warmup=5, iters=20):
 
 
 def main():
+    # 检查是否通过torchrun运行
+    if not os.environ.get('RANK'):
+        print("错误: 此脚本需要通过 torchrun 运行，例如:")
+        print("  torchrun --nproc_per_node=<GPU数量> 06b_nccl_pytorch.py")
+        print("或者在 run_all_tests.sh 脚本中运行")
+        exit(1)
+    
     dist.init_process_group(backend='nccl')
     rank = dist.get_rank()
     world_size = dist.get_world_size()
