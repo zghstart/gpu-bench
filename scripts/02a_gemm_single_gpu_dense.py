@@ -89,36 +89,74 @@ def main():
     # FP8 (dense - Tensor Core 不启用稀疏)
     if 'fp8' in gpu_info and gpu_info['fp8'] > 0:
         try:
-            # 检查是否支持FP8 GEMM
-            M = N = K = MATRIX_SIZE
-            
-            # 尝试使用torch._dynamo.config.accumulated_cache_size_limit = 1024
-            # 直接使用FP16测试，因为FP8支持可能需要特定的硬件和软件配置
-            A = torch.randn(M, K, dtype=torch.float16, device=device)
-            B = torch.randn(K, N, dtype=torch.float16, device=device)
-            
-            # Warmup
-            for _ in range(WARMUP_ITERS):
-                C = torch.mm(A, B)
-            torch.cuda.synchronize()
-            
-            # Benchmark
-            start = time.perf_counter()
-            for _ in range(TEST_ITERS):
-                C = torch.mm(A, B)
-            torch.cuda.synchronize()
-            elapsed = time.perf_counter() - start
-            
-            avg_time = elapsed / TEST_ITERS
-            flops = 2 * M * N * K  # GEMM: 2 * M * N * K
-            tflops = flops / avg_time / 1e12
-            efficiency = tflops / gpu_info['fp16'] * 100
-            
-            status = "✅ 优秀" if efficiency >= 80 else ("✅ 良好" if efficiency >= 70 else "⚠️ 偏低")
-            print(f"  FP16 (Tensor Core)          {tflops:>8.1f} TFLOPS  峰值={gpu_info['fp16']} TFLOPS  达标率={efficiency:.1f}%  {status}")
-            
-            # 对于FP8，我们使用FP16的结果作为参考，因为FP8需要特定的硬件支持
-            print(f"  FP8 (Tensor Core, dense)     参考值: {tflops * 2:.1f} TFLOPS  峰值={gpu_info['fp8']} TFLOPS  预计达标率={tflops * 2 / gpu_info['fp8'] * 100:.1f}%")
+            # 尝试使用Transformer Engine进行FP8测试
+            try:
+                import transformer_engine.pytorch as te
+                from transformer_engine.common.recipe import Format, DelayedScaling
+                
+                # 创建FP8 recipe
+                fp8_recipe = DelayedScaling(
+                    margin=0,
+                    interval=1,
+                    fp8_format=Format.E4M3,
+                    amax_history_len=1024,
+                    amax_compute_algo="max"
+                )
+                
+                M = N = K = MATRIX_SIZE
+                A = torch.randn(M, K, device=device)
+                B = torch.randn(K, N, device=device)
+                
+                # Warmup
+                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                    for _ in range(WARMUP_ITERS):
+                        C = torch.mm(A, B)
+                torch.cuda.synchronize()
+                
+                # Benchmark
+                start = time.perf_counter()
+                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                    for _ in range(TEST_ITERS):
+                        C = torch.mm(A, B)
+                torch.cuda.synchronize()
+                elapsed = time.perf_counter() - start
+                
+                avg_time = elapsed / TEST_ITERS
+                flops = 2 * M * N * K  # GEMM: 2 * M * N * K
+                tflops = flops / avg_time / 1e12
+                efficiency = tflops / gpu_info['fp8'] * 100
+                
+                status = "✅ 优秀" if efficiency >= 80 else ("✅ 良好" if efficiency >= 70 else "⚠️ 偏低")
+                print(f"  FP8 (Tensor Core, dense)     {tflops:>8.1f} TFLOPS  峰值={gpu_info['fp8']} TFLOPS  达标率={efficiency:.1f}%  {status}")
+            except ImportError:
+                # 如果没有安装Transformer Engine，使用FP16作为参考
+                M = N = K = MATRIX_SIZE
+                A = torch.randn(M, K, dtype=torch.float16, device=device)
+                B = torch.randn(K, N, dtype=torch.float16, device=device)
+                
+                # Warmup
+                for _ in range(WARMUP_ITERS):
+                    C = torch.mm(A, B)
+                torch.cuda.synchronize()
+                
+                # Benchmark
+                start = time.perf_counter()
+                for _ in range(TEST_ITERS):
+                    C = torch.mm(A, B)
+                torch.cuda.synchronize()
+                elapsed = time.perf_counter() - start
+                
+                avg_time = elapsed / TEST_ITERS
+                flops = 2 * M * N * K  # GEMM: 2 * M * N * K
+                tflops = flops / avg_time / 1e12
+                efficiency = tflops / gpu_info['fp16'] * 100
+                
+                status = "✅ 优秀" if efficiency >= 80 else ("✅ 良好" if efficiency >= 70 else "⚠️ 偏低")
+                print(f"  FP16 (Tensor Core)          {tflops:>8.1f} TFLOPS  峰值={gpu_info['fp16']} TFLOPS  达标率={efficiency:.1f}%  {status}")
+                
+                # 对于FP8，我们使用FP16的结果作为参考，因为FP8需要Transformer Engine
+                print(f"  FP8 (Tensor Core, dense)     参考值: {tflops * 2:.1f} TFLOPS  峰值={gpu_info['fp8']} TFLOPS  预计达标率={tflops * 2 / gpu_info['fp8'] * 100:.1f}%")
+                print(f"  提示: 安装Transformer Engine库以获得准确的FP8测试结果")
         except Exception as e:
             print(f"  FP8 (Tensor Core, dense)     测试失败: {str(e)}")
 
