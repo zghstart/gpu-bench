@@ -77,16 +77,34 @@ test_infiniband() {
             echo "\n--- InfiniBand带宽测试 ---"
             # 尝试使用ib_write_bw测试InfiniBand带宽
             if command -v ib_write_bw &>/dev/null; then
-                echo "启动ib_write_bw服务器..."
-                ib_write_bw -d auto -F --report_gbits &
-                BW_PID=$!
-                sleep 2
-                
-                echo "测试InfiniBand带宽..."
-                ib_write_bw -d auto -F --report_gbits localhost
-                
-                # 停止ib_write_bw服务器
-                kill $BW_PID 2>/dev/null
+                # 尝试获取InfiniBand设备名称
+                ib_devices=$(ibstat | grep "CA " | awk '{print $2}')
+                if [ -n "$ib_devices" ]; then
+                    # 选择第一个InfiniBand设备
+                    ib_device=$(echo $ib_devices | awk '{print $1}')
+                    echo "启动ib_write_bw服务器..."
+                    ib_write_bw -d $ib_device -F --report_gbits &
+                    BW_PID=$!
+                    sleep 2
+                    
+                    echo "测试InfiniBand带宽..."
+                    ib_write_bw -d $ib_device -F --report_gbits localhost
+                    
+                    # 停止ib_write_bw服务器
+                    kill $BW_PID 2>/dev/null
+                else
+                    # 如果无法获取设备名称，尝试不指定设备
+                    echo "启动ib_write_bw服务器..."
+                    ib_write_bw -F --report_gbits &
+                    BW_PID=$!
+                    sleep 2
+                    
+                    echo "测试InfiniBand带宽..."
+                    ib_write_bw -F --report_gbits localhost
+                    
+                    # 停止ib_write_bw服务器
+                    kill $BW_PID 2>/dev/null
+                fi
             else
                 echo "⚠️  ib_write_bw 未找到，无法测试InfiniBand带宽"
                 echo "建议安装: apt-get install perftest"
