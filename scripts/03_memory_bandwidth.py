@@ -49,13 +49,19 @@ def benchmark_bandwidth(size_mb, device, gpu_id, gpu_info):
 
 
 def main():
-    num_gpus = torch.cuda.device_count()
+    # 从命令行参数获取GPU ID
+    import sys
+    if len(sys.argv) > 1:
+        gpu_ids = [int(sys.argv[1])]
+    else:
+        num_gpus = torch.cuda.device_count()
+        gpu_ids = range(num_gpus)
 
     print(f"\n{'='*65}")
     print(f"  HBM 显存带宽测试  (迭代: {TEST_ITERS} 次)")
     print(f"{'='*65}")
 
-    for gpu_id in range(num_gpus):
+    for gpu_id in gpu_ids:
         device = torch.device(f'cuda:{gpu_id}')
         gpu_name = torch.cuda.get_device_name(gpu_id)
         gpu_info = detect_gpu_type(gpu_id)

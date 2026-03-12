@@ -62,7 +62,11 @@ def check_gpu_health():
         
         gpu_id = parts[0].strip()
         temp = float(parts[1].strip())
-        power = float(parts[2].strip())
+        power_str = parts[2].strip()
+        # 移除 "W" 单位
+        if 'W' in power_str:
+            power_str = power_str.replace('W', '').strip()
+        power = float(power_str)
         
         # 设置温度和功耗阈值
         MAX_TEMP = 90.0  # 摄氏度
@@ -77,18 +81,27 @@ def check_gpu_health():
 
 
 def main():
-    num_gpus = torch.cuda.device_count()
+    # 解析命令行参数，获取要测试的 GPU ID
+    gpu_ids = []
+    if len(sys.argv) > 1:
+        # 支持多个 GPU ID，如 "0 3 6"
+        gpu_ids = [int(id) for id in sys.argv[1].split()]
+    else:
+        # 默认测试所有 GPU
+        num_gpus = torch.cuda.device_count()
+        gpu_ids = list(range(num_gpus))
 
-    # 为每个 GPU 检测类型并获取 FP16 峰值 (转换为 Gflop/s)
+    # 为指定的 GPU 检测类型并获取 FP16 峰值 (转换为 Gflop/s)
     gpu_peaks = {}
     gpu_names = {}
-    for i in range(num_gpus):
+    for i in gpu_ids:
         info = detect_gpu_type(i)
         gpu_peaks[i] = info['fp16'] * 1000  # 转换为 Gflop/s
         gpu_names[i] = info['name']
 
     print(f"\n{'='*65}")
-    print(f"  PyTorch GPU 压力测试（{DURATION_SECONDS}秒，{num_gpus} 卡）")
+    print(f"  PyTorch GPU 压力测试（{DURATION_SECONDS}秒，{len(gpu_ids)} 卡）")
+    print(f"  测试 GPU: {gpu_ids}")
     print(f"  矩阵规模: {MATRIX_SIZE}×{MATRIX_SIZE}  精度: FP16")
     print(f"{'='*65}")
     
@@ -103,7 +116,7 @@ def main():
     results = {}
     stop_event = threading.Event()
     threads = [threading.Thread(target=stress_gpu, args=(i, results, stop_event, gpu_peaks))
-               for i in range(num_gpus)]
+               for i in gpu_ids]
 
     for t in threads:
         t.start()
@@ -130,7 +143,7 @@ def main():
     print(f"  {'─'*65}")
 
     total = 0
-    for i in range(num_gpus):
+    for i in gpu_ids:
         data = results.get(i, {'gflops': 0, 'peak': 989000})
         gflops = data['gflops']
         peak = data['peak']

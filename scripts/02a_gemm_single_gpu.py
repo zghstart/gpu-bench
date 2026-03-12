@@ -19,6 +19,11 @@ WARMUP_ITERS = 5
 TEST_ITERS = 20
 GPU_ID = 0
 
+# 从命令行参数获取GPU ID
+import sys
+if len(sys.argv) > 1:
+    GPU_ID = int(sys.argv[1])
+
 
 def benchmark_gemm(dtype, size, device, label, peak_tflops, has_sparsity=False):
     M = N = K = size
