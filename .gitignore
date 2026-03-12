@@ -1,0 +1,27 @@
+# 日志文件
+logs/
+*.log
+
+# Python缓存目录
+__pycache__/
+*.pyc
+
+# 测试结果文件
+gpu_benchmark_result_*.log
+gpu_benchmark_report_*.json
+gpu_benchmark_report_*.html
+
+# 环境文件
+.env
+.venv/
+env/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
