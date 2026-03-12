@@ -66,8 +66,8 @@ def main():
     print(f"{'='*65}")
 
     # FP32 (dense, no sparse)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
     benchmark_gemm_dense(torch.float32, MATRIX_SIZE, device,
                          'FP32 (dense)', gpu_info['fp32'], dense=True)
 
